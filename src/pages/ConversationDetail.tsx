@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
     ArrowLeft,
@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import SectionHeader from '../components/SectionHeader';
 import Avatar from '../components/Avatar';
-import { PEOPLE_DATA } from '../data/mockData';
+import { api, type Conversation, type Person } from '../services/api';
 
 interface ConversationDetailProps {
     conversations: any[];
@@ -27,16 +27,49 @@ const ConversationDetail = ({ conversations, onToggleItem }: ConversationDetailP
     const navigate = useNavigate();
     const [showCompleted, setShowCompleted] = useState(false);
     const [showTranscript, setShowTranscript] = useState(false);
+    const [conversation, setConversation] = useState<Conversation | null>(null);
+    const [people, setPeople] = useState<Person[]>([]);
+    const [loading, setLoading] = useState(true);
 
-    const conv = conversations.find(c => c.id === id);
+    useEffect(() => {
+        const loadData = async () => {
+            if (!id) return;
 
-    if (!conv) return null;
+            try {
+                setLoading(true);
+                // Load conversation details and all people in parallel
+                const [convData, peopleData] = await Promise.all([
+                    api.conversations.getById(id),
+                    api.people.getAll()
+                ]);
 
-    const participantIds = conv.participants || [conv.personId];
-    const participants = participantIds.map((id: string) => PEOPLE_DATA.find(p => p.id === id)).filter(Boolean);
+                setConversation(convData);
+                setPeople(peopleData);
+            } catch (error) {
+                console.error('Failed to load conversation:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
 
-    const activeItems = conv.actionItems.filter((i: any) => !i.completed);
-    const completedItems = conv.actionItems.filter((i: any) => i.completed);
+        loadData();
+    }, [id]);
+
+    if (loading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+            </div>
+        );
+    }
+
+    if (!conversation) return null;
+
+    const participantIds = conversation.participants || [conversation.personId];
+    const participants = participantIds.map((id: string) => people.find(p => p.id === id)).filter(Boolean);
+
+    const activeItems = conversation.actionItems?.filter((i: any) => !i.completed) || [];
+    const completedItems = conversation.actionItems?.filter((i: any) => i.completed) || [];
 
     return (
         <div className="pb-24 bg-white min-h-screen animate-in slide-in-from-right-10 duration-300">
@@ -45,8 +78,8 @@ const ConversationDetail = ({ conversations, onToggleItem }: ConversationDetailP
                     <ArrowLeft size={20} />
                 </button>
                 <div className="text-center">
-                    <h2 className="font-semibold text-slate-800 text-sm truncate max-w-[200px]">{conv.title}</h2>
-                    <p className="text-xs text-slate-400">{conv.date.split('•')[0]}</p>
+                    <h2 className="font-semibold text-slate-800 text-sm truncate max-w-[200px]">{conversation.title}</h2>
+                    <p className="text-xs text-slate-400">{conversation.date.split('•')[0]}</p>
                 </div>
                 <button className="p-2 -mr-2 rounded-full hover:bg-slate-50 text-slate-400">
                     <MoreHorizontal size={20} />
@@ -55,9 +88,9 @@ const ConversationDetail = ({ conversations, onToggleItem }: ConversationDetailP
 
             <div className="p-6 space-y-8">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-900 leading-tight mb-2">{conv.title}</h1>
+                    <h1 className="text-2xl font-bold text-slate-900 leading-tight mb-2">{conversation.title}</h1>
                     <p className="text-slate-500 text-sm flex items-center gap-1.5">
-                        <MapPin size={14} /> {conv.location}
+                        <MapPin size={14} /> {conversation.location}
                     </p>
                 </div>
 
@@ -68,7 +101,7 @@ const ConversationDetail = ({ conversations, onToggleItem }: ConversationDetailP
                     </div>
                     <div className="bg-indigo-50/50 rounded-2xl p-5 border border-indigo-100/50 shadow-sm">
                         <p className="text-slate-700 leading-relaxed text-[15px]">
-                            {conv.summary}
+                            {conversation.summary}
                         </p>
                     </div>
                 </div>
@@ -76,7 +109,7 @@ const ConversationDetail = ({ conversations, onToggleItem }: ConversationDetailP
                 <div>
                     <SectionHeader title="Key Points" icon={null} />
                     <ul className="space-y-3">
-                        {conv.keyPoints.map((point: string, idx: number) => (
+                        {conversation.keyPoints?.map((point: string, idx: number) => (
                             <li key={idx} className="flex gap-3 text-sm text-slate-600 leading-relaxed">
                                 <span className="block w-1.5 h-1.5 rounded-full bg-slate-300 mt-2 shrink-0" />
                                 {point}
@@ -92,7 +125,7 @@ const ConversationDetail = ({ conversations, onToggleItem }: ConversationDetailP
                             {activeItems.map((item: any) => (
                                 <div
                                     key={item.id}
-                                    onClick={() => onToggleItem(conv.id, item.id)}
+                                    onClick={() => onToggleItem(conversation.id, item.id)}
                                     className="flex items-start gap-3 bg-white border border-stone-200 p-3 rounded-lg shadow-sm cursor-pointer hover:border-teal-200 transition-colors group"
                                 >
                                     <div className="w-5 h-5 rounded border-2 border-slate-300 mt-0.5 shrink-0 group-hover:border-teal-400 transition-colors" />
@@ -114,7 +147,7 @@ const ConversationDetail = ({ conversations, onToggleItem }: ConversationDetailP
                                             {completedItems.map((item: any) => (
                                                 <div
                                                     key={item.id}
-                                                    onClick={() => onToggleItem(conv.id, item.id)}
+                                                    onClick={() => onToggleItem(conversation.id, item.id)}
                                                     className="flex items-start gap-3 bg-stone-50 border border-stone-100 p-3 rounded-lg opacity-60 cursor-pointer"
                                                 >
                                                     <div className="w-5 h-5 rounded border-2 border-slate-300 mt-0.5 shrink-0 bg-slate-200 flex items-center justify-center">
@@ -145,7 +178,7 @@ const ConversationDetail = ({ conversations, onToggleItem }: ConversationDetailP
                                     <div>
                                         <h3 className="font-semibold text-slate-800 text-sm">{person.name}</h3>
                                         <p className="text-xs text-slate-500">
-                                            {person.id === conv.personId ? 'Primary Speaker' : 'Participant'}
+                                            {person.id === conversation.personId ? 'Primary Speaker' : 'Participant'}
                                         </p>
                                     </div>
                                 </div>
@@ -168,7 +201,7 @@ const ConversationDetail = ({ conversations, onToggleItem }: ConversationDetailP
                         <div className="mt-4 animate-in slide-in-from-bottom-2 fade-in duration-300">
                             <div className="bg-stone-50 rounded-xl p-4 border border-stone-100">
                                 <p className="text-[13px] text-slate-500 leading-relaxed font-mono whitespace-pre-wrap">
-                                    {conv.fullTranscript || "Transcript not available for this session."}
+                                    {conversation.fullTranscript || "Transcript not available for this session."}
                                 </p>
                             </div>
                             <p className="text-[10px] text-slate-400 mt-3 text-center uppercase tracking-widest">

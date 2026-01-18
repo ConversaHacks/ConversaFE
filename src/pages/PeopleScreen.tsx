@@ -1,11 +1,29 @@
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User } from 'lucide-react';
 import HeaderBlob from '../components/HeaderBlob';
 import Avatar from '../components/Avatar';
-import { PEOPLE_DATA } from '../data/mockData';
+import { api, type Person } from '../services/api';
 
 const PeopleScreen = () => {
     const navigate = useNavigate();
+    const [people, setPeople] = useState<Person[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const loadPeople = async () => {
+            try {
+                const data = await api.people.getAll();
+                setPeople(data);
+            } catch (error) {
+                console.error('Failed to load people:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        loadPeople();
+    }, []);
 
     return (
         <div className="pb-24 animate-in fade-in duration-500">
@@ -21,7 +39,11 @@ const PeopleScreen = () => {
             </div>
 
             <div className="px-6 space-y-3">
-                {PEOPLE_DATA.map(person => (
+                {loading ? (
+                    <div className="text-center py-12">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto"></div>
+                    </div>
+                ) : people.map(person => (
                     <div
                         key={person.id}
                         onClick={() => navigate(`/people/${person.id}`)}

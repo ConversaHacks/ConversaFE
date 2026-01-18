@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
     ArrowLeft,
@@ -14,7 +14,7 @@ import {
 import Avatar from '../components/Avatar';
 import Card from '../components/Card';
 import SectionHeader from '../components/SectionHeader';
-import { PEOPLE_DATA } from '../data/mockData';
+import { api, type Person } from '../services/api';
 
 interface PersonDetailProps {
     conversations: any[];
@@ -24,8 +24,32 @@ const PersonDetail = ({ conversations }: PersonDetailProps) => {
     const { id } = useParams();
     const navigate = useNavigate();
     const [showEdit, setShowEdit] = useState(false);
+    const [person, setPerson] = useState<Person | null>(null);
+    const [loading, setLoading] = useState(true);
 
-    const person = PEOPLE_DATA.find(p => p.id === id);
+    useEffect(() => {
+        const loadPerson = async () => {
+            if (!id) return;
+            try {
+                const data = await api.people.getById(id);
+                setPerson(data);
+            } catch (error) {
+                console.error('Failed to load person:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        loadPerson();
+    }, [id]);
+
+    if (loading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+            </div>
+        );
+    }
 
     if (!person) return null;
 

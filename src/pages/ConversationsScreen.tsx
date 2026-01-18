@@ -1,11 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Filter, X } from 'lucide-react';
 import HeaderBlob from '../components/HeaderBlob';
 import Card from '../components/Card';
 import Badge from '../components/Badge';
 import Avatar from '../components/Avatar';
-import { PEOPLE_DATA } from '../data/mockData';
+import { api, type Person } from '../services/api';
 
 interface ConversationsScreenProps {
     conversations: any[];
@@ -16,6 +16,20 @@ const ConversationsScreen = ({ conversations }: ConversationsScreenProps) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [filterOpen, setFilterOpen] = useState(false);
     const [activePersonFilter, setActivePersonFilter] = useState('all');
+    const [people, setPeople] = useState<Person[]>([]);
+
+    useEffect(() => {
+        const loadPeople = async () => {
+            try {
+                const data = await api.people.getAll();
+                setPeople(data);
+            } catch (error) {
+                console.error('Failed to load people:', error);
+            }
+        };
+
+        loadPeople();
+    }, []);
 
     const filteredConversations = useMemo(() => {
         return conversations.filter(conv => {
@@ -24,16 +38,16 @@ const ConversationsScreen = ({ conversations }: ConversationsScreenProps) => {
             }
             if (!searchQuery) return true;
             const query = searchQuery.toLowerCase();
-            const person = PEOPLE_DATA.find(p => p.id === conv.personId);
+            const person = people.find(p => p.id === conv.personId);
             const personName = person?.name.toLowerCase() || '';
             return (
                 conv.title.toLowerCase().includes(query) ||
                 conv.summary.toLowerCase().includes(query) ||
                 personName.includes(query) ||
-                conv.keyPoints.some((kp: string) => kp.toLowerCase().includes(query))
+                conv.keyPoints?.some((kp: string) => kp.toLowerCase().includes(query))
             );
         });
-    }, [conversations, searchQuery, activePersonFilter]);
+    }, [conversations, searchQuery, activePersonFilter, people]);
 
     return (
         <div className="pb-24 animate-in fade-in duration-500 min-h-screen">
@@ -80,7 +94,7 @@ const ConversationsScreen = ({ conversations }: ConversationsScreenProps) => {
                             >
                                 All
                             </button>
-                            {PEOPLE_DATA.map(p => (
+                            {people.map(p => (
                                 <button
                                     key={p.id}
                                     onClick={() => setActivePersonFilter(p.id)}
@@ -97,8 +111,8 @@ const ConversationsScreen = ({ conversations }: ConversationsScreenProps) => {
             <div className="px-6 space-y-4">
                 {filteredConversations.length > 0 ? (
                     filteredConversations.map(conv => {
-                        const person = PEOPLE_DATA.find(p => p.id === conv.personId);
-                        const activeActionItems = conv.actionItems.filter((i: any) => !i.completed).length;
+                        const person = people.find(p => p.id === conv.personId);
+                        const activeActionItems = conv.actionItems?.filter((i: any) => !i.completed).length || 0;
                         return (
                             <Card key={conv.id} onClick={() => navigate(`/conversations/${conv.id}`)}>
                                 <div className="flex justify-between items-start mb-2">
